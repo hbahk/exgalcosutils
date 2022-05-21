@@ -11,6 +11,8 @@ from matplotlib import pyplot as plt
 from astropy.coordinates import SkyCoord
 from astropy import unit as u
 
+__all__ = ['match_catalogs', 'plot_offset_dist']
+
 def match_catalogs(cat_lowres, cat_highres, tol):
     '''
     Cross-match two catalogs from different astronomical surveys, based on
