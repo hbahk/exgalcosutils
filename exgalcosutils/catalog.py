@@ -30,7 +30,9 @@ def match_catalogs(cat_lowres, cat_highres, tol):
         parameter. This should be based on survey with higher spatial
         resolution (smaller FWHM) than the other.
     tol : float, int or Quantity with angular unit.
-        The matching tolerence of angular separation. If this is 
+        The matching tolerance of angular separation. If this is provided
+        without angluar unit, then this quantity will be condidered as arcsec
+        by default.
 
     Returns
     -------
@@ -97,10 +99,47 @@ def match_catalogs(cat_lowres, cat_highres, tol):
     idxl = il[cmil]    # matched index of cat_lowres
     
     return idxl, idxh
-    
+#%%    
 
-def plot_offset_dist(c1, c2, tol):
-    
+def plot_offset_dist(c1, c2, tol, hist=False, plot_kwargs={}, hist_kwargs={},
+                     circ_kwargs={}, text_kwargs={}, return_axes=False):
+    '''
+    Plot a offset distribution figure for positions of two matched catalogs.
+
+    Parameters
+    ----------
+    c1 : SkyCoord array
+        SkyCoord coordiantes of a matched catalog.
+    c2 : SkyCoord array
+        SkyCoord coordiantes of the other matched catalog.
+    tol : float, int or Quantity with angular unit.
+        The matching tolerance of angular separation. If this is provided
+        without angluar unit, then this quantity will be condidered as arcsec
+        by default.
+    hist : bool, optional
+        If True then draw histograms for each axis (longitudinal and
+        latitudinal) on the corresponding side axis. The default is False.
+    plot_kwargs : dict, optional
+        kwargs for main plot (ax.plot(**kwargs)). The default is {}.
+    hist_kwargs : dict, optional
+        kwargs for hist plot (ax.hist(**kwargs)). The default is {}.
+    circ_kwargs : dict, optional
+        kwargs for circle patch (plt.Circle(**kwargs)). The default is {}.
+    text_kwargs : dict, optional
+        kwargs for text in main plot (ax.text(**kwargs)). The default is {}.
+    return_axes : TYPE, optional
+        If True all AxesSubplot will be returned. In case of hist=False, single
+        main subplot will be returned, otherwise the axes will be returned in
+        form of following:
+            array([[<AxesSubplot:>, <AxesSubplot:>],
+                   [<AxesSubplot:>, <AxesSubplot:>]], dtype=object)
+        The default is False.
+
+    Returns
+    -------
+    (Optional) AxesSubplot or array of AxesSubplot, if return_axis=True
+
+    '''
     if not (isinstance(c1, SkyCoord) and isinstance(c2, SkyCoord)):
         raise ValueError('`c1` and `c2` should be SkyCoord objects')
     
@@ -112,27 +151,107 @@ def plot_offset_dist(c1, c2, tol):
                              ' or a Quantity object with given unit')
     
     dra, ddec = c2.spherical_offsets_to(c1)
+    dra, ddec = dra.to(tol.unit), ddec.to(tol.unit)
     
-    fig, ax = plt.subplots(1, 1, figsize=(7,7))
+    if hist:
+        fig, axes = plt.subplots(2, 2, figsize=(7,7),
+                                 gridspec_kw={'width_ratios': [4, 1],
+                                              'height_ratios': [1, 4]})
+        (hhax, nax), (ax, vhax) = axes
+    else:
+        fig, ax = plt.subplots(1, 1, figsize=(7,7))
     
-    ax.plot(dra.arcmin, ddec.arcmin, '.', c='k')
+    # main scatter plot
+    # - default kwargs setting (fmt='.', c='k')
+    fmt = plot_kwargs.pop('fmt', '.')
+    color_keyname = 'c' if 'c' in plot_kwargs.keys() else 'color' # for alias
+    plot_c = plot_kwargs.pop(color_keyname, 'k')
     
-    circ = plt.Circle((0,0), tol.value, fill=False, ec='k')
+    # - plotting positional offset
+    ax.plot(dra.value, ddec.value, fmt=fmt, c=plot_c, **plot_kwargs)
+    
+    # - default kwargs for the tolerance circle (fill=False, ec='k', zorder=0)
+    circ_fill = circ_kwargs.pop('fill', False)
+    ec_keyname = 'ec' if 'ec' in circ_kwargs.keys() else 'edgecolor'
+    circ_ec = circ_kwargs.pop(ec_keyname, 'k')
+    circ_zorder = circ_kwargs.pop('zorder', 0)
+    
+    # - drawing the circle
+    circ = plt.Circle((0,0), tol.value, fill=circ_fill, ec=circ_ec,
+                      zorder=circ_zorder, **circ_kwargs)
     ax.add_patch(circ)
     
+    # - making x and y scale equal
+    # ax.set_aspect('equal') # This doesn't work well
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    lim = np.array([-1,1]) * np.max(np.abs(np.concatenate((xlim, ylim))))
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+    
+    # - horizontal and vertical line passing the zeropoint
     ax.axhline(0, c='k', ls=':', lw=1)
     ax.axvline(0, c='k', ls=':', lw=1)
     
-    ax.text(0.98, 0.02, f'TOL={tol:.2f}',
-            va='bottom', ha='right', transform=ax.transAxes)
+    # - default kwargs for the text
+    # +- (x=0.99, y=0.01, va='bottom', ha='right', transform=ax.transAxes)
+    text_x, text_y = text_kwargs.pop('x', 0.99), text_kwargs.pop('y', 0.01)
+    va_keyname = 'va' if 'va' in text_kwargs.keys() else 'verticalalignment'
+    ha_keyname = 'ha' if 'ha' in text_kwargs.keys() else 'horizontalignment'
+    text_va = text_kwargs.pop(va_keyname,'bottom')
+    text_ha = text_kwargs.pop(ha_keyname, 'right')
+    text_transform = text_kwargs.pop('transform', ax.transAxes)
     
+    # - add information about the tolerance
+    ax.text(text_x, text_y, f'TOL={tol:.1f}',
+            va=text_va, ha=text_ha, transform=text_transform, **text_kwargs)
+    
+    # - axis label
     ax.set_xlabel(r'$\Delta \alpha$ ' + f'[{tol.unit.name}]')
     ax.set_ylabel(r'$\Delta \delta$ ' + f'[{tol.unit.name}]')
-    ax.axis('equal')
     
+    # - changing tick direction and adding minor ticks
     ax.minorticks_on()
     ax.tick_params(direction='in', top=True, right=True)
     ax.tick_params(which='minor', direction='in', top=True, right=True)
     
+    # histograms on side axes
+    if hist:
+        # - unuse top-right axis
+        nax.axis('off')
+        
+        # - default kwargs for histogram (bins=20, histtype='step', color='k')
+        bins = hist_kwargs.pop('bins', 20)
+        histtype = hist_kwargs.pop('histtype', 'step')
+        hist_color = hist_kwargs.pop('color', 'k')
+        
+        # - drawing histogram
+        _ = hhax.hist(dra.value, bins=bins, histtype=histtype,
+                      color=hist_color, **hist_kwargs)
+        _ = vhax.hist(ddec.value, bins=bins, histtype=histtype,
+                      color=hist_color, orientation='horizontal',
+                      **hist_kwargs)
+        
+        hhax.get_shared_x_axes().join(ax, hhax)
+        vhax.get_shared_y_axes().join(ax, vhax)
+        
+        hhax.set_xlim(lim)
+        vhax.set_ylim(lim)
+        
+        for axis, lb, ll in zip([hhax, vhax], [False, True], [True, False]):
+
+            axis.minorticks_on()
+            axis.tick_params(direction='in', top=True, right=True,
+                             labelbottom=lb, labelleft=ll)
+            axis.tick_params(which='minor', direction='in',
+                             top=True, right=True)
+            
+            plt.draw()    # to populate tick labels
+            lab_f = axis.get_yticklabels if ll==True else axis.get_xticklabels
+            plt.setp(lab_f()[0], visible=False)
+        
     plt.tight_layout()
+    plt.subplots_adjust(hspace=0, wspace=0)
     plt.show()
+    
+    if return_axes:
+        return axes if hist else ax
