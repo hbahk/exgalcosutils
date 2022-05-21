@@ -13,8 +13,8 @@ from astropy import unit as u
 
 def match_catalogs(cat_lowres, cat_highres, tol):
     '''
-    Match two catalogs from different astronomical surveys, based on their
-    celestrial positions.
+    Cross-match two catalogs from different astronomical surveys, based on
+    their celestrial positions.
     
     Returns the ordered index array of matched sources for the given catalogs.
     The output index array are sorted by original cat_highres index.
