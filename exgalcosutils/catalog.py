@@ -165,12 +165,15 @@ def plot_offset_dist(c1, c2, tol, hist=False, plot_kwargs={}, hist_kwargs={},
     
     # main scatter plot
     # - default kwargs setting (fmt=".", c="k")
-    fmt = plot_kwargs.pop("fmt", ".")
+    marker = plot_kwargs.pop("marker", ".")
+    ls_keyname = "ls" if "ls" in plot_kwargs.keys() else "linestyle"
+    plot_ls = plot_kwargs.pop(ls_keyname, "")
     color_keyname = "c" if "c" in plot_kwargs.keys() else "color" # for alias
     plot_c = plot_kwargs.pop(color_keyname, "k")
     
     # - plotting positional offset
-    ax.plot(dra.value, ddec.value, fmt=fmt, c=plot_c, **plot_kwargs)
+    ax.plot(dra.value, ddec.value, marker=marker, ls=plot_ls, c=plot_c,
+            **plot_kwargs)
     
     # - default kwargs for the tolerance circle (fill=False, ec="k", zorder=0)
     circ_fill = circ_kwargs.pop("fill", False)
