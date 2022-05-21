@@ -7,6 +7,7 @@ Created on Fri May 20 15:10:11 2022
 """
 
 import numpy as np
+from matplotlib import pyplot as plt
 from astropy.coordinates import SkyCoord
 from astropy import unit as u
 
@@ -66,7 +67,8 @@ def match_catalogs(cat_lowres, cat_highres, tol):
     
     if not (isinstance(cat_lowres, SkyCoord)
             and isinstance(cat_highres, SkyCoord)):
-        raise ValueError('`cat1` and `cat2` should be SkyCoord objects')
+        raise ValueError('`cat_lowres` and `cat_highres` should be '+
+                         'SkyCoord objects')
     
     if not isinstance(tol, u.quantity.Quantity):
         if type(tol) is float or type(tol) is int:
@@ -96,4 +98,41 @@ def match_catalogs(cat_lowres, cat_highres, tol):
     
     return idxl, idxh
     
+
+def plot_offset_dist(c1, c2, tol):
     
+    if not (isinstance(c1, SkyCoord) and isinstance(c2, SkyCoord)):
+        raise ValueError('`c1` and `c2` should be SkyCoord objects')
+    
+    if not isinstance(tol, u.quantity.Quantity):
+        if type(tol) is float or type(tol) is int:
+            tol = tol * u.arcsec
+        else:
+            raise ValueError('`tol` should be either a number (int or float)'+
+                             ' or a Quantity object with given unit')
+    
+    dra, ddec = c2.spherical_offsets_to(c1)
+    
+    fig, ax = plt.subplots(1, 1, figsize=(7,7))
+    
+    ax.plot(dra.arcmin, ddec.arcmin, '.', c='k')
+    
+    circ = plt.Circle((0,0), tol.value, fill=False, ec='k')
+    ax.add_patch(circ)
+    
+    ax.axhline(0, c='k', ls=':', lw=1)
+    ax.axvline(0, c='k', ls=':', lw=1)
+    
+    ax.text(0.98, 0.02, f'TOL={tol:.2f}',
+            va='bottom', ha='right', transform=ax.transAxes)
+    
+    ax.set_xlabel(r'$\Delta \alpha$ ' + f'[{tol.unit.name}]')
+    ax.set_ylabel(r'$\Delta \delta$ ' + f'[{tol.unit.name}]')
+    ax.axis('equal')
+    
+    ax.minorticks_on()
+    ax.tick_params(direction='in', top=True, right=True)
+    ax.tick_params(which='minor', direction='in', top=True, right=True)
+    
+    plt.tight_layout()
+    plt.show()
