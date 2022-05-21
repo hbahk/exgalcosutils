@@ -9,7 +9,7 @@ Created on Fri May 20 15:10:11 2022
 import numpy as np
 from matplotlib import pyplot as plt
 from astropy.coordinates import SkyCoord
-from astropy import unit as u
+from astropy import units as u
 
 __all__ = ["match_catalogs", "plot_offset_dist"]
 
