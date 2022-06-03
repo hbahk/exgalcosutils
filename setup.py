@@ -1,4 +1,4 @@
-from setuptils import setup, find_packages
+from setuptools import setup, find_packages
 
 setup_requires = []
 install_requires = [
