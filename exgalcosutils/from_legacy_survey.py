@@ -17,15 +17,12 @@ from astropy.wcs import WCS
 from astropy.visualization.wcsaxes import SphericalCircle
 from matplotlib import pyplot as plt
 from matplotlib import rc
-font = {'family' : 'serif',
-        'serif' : ['Times New Roman'],
-        'size'   : 15}
-rc('font', **font)
 # from PIL import Image
 from urllib.error import HTTPError
 # from io import BytesIO
 from exgalcosutils.catalog import match_catalogs
 from astropy.utils.data import conf
+import astropy.units as u
 
 __all__ = ['get_lgs_galaxies', 'get_lgs_image_lupton', 'get_lgs_image',
            'get_info_fig']
@@ -95,7 +92,13 @@ def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
 
 def get_lgs_image_lupton(cra, cdec, pix_size=1600, pix_scale=1):
     try:
-
+        if type(pix_size) == u.quantity.Quantity:
+            SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
+            pix_size = round(((2*pix_size/SCALE).decompose().value))
+        elif type(pix_size) != int:
+            raise ValueError('`pix_size` should be either type of int '+
+                             'astropy Quantity in angular unit')
+        
         img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
                         + f'ra={cra:.4f}&dec={cdec:.4f}&width={pix_size}&height={pix_size}'\
                             + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
@@ -116,7 +119,13 @@ def get_lgs_image_lupton(cra, cdec, pix_size=1600, pix_scale=1):
 
 def get_lgs_image(cra, cdec, pix_size=1600, pix_scale=1, **kwargs):
     try:
-
+        if type(pix_size) == u.quantity.Quantity:
+            SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
+            pix_size = round(((2*pix_size/SCALE).decompose().value))
+        elif type(pix_size) != int:
+            raise ValueError('`pix_size` should be either type of int '+
+                             'astropy Quantity in angular unit')
+            
         img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
                         + f'ra={cra:.4f}&dec={cdec:.4f}&width={pix_size}&height={pix_size}'\
                             + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
