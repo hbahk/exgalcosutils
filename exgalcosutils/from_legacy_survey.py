@@ -90,13 +90,15 @@ def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
     except Exception as e:
         raise e
 
-def get_lgs_image_lupton(cra, cdec, pix_size=1600, pix_scale=1):
+def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=1):
     try:
-        if type(pix_size) == u.quantity.Quantity:
+        if type(size) == u.quantity.Quantity:
             SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
-            pix_size = round(((2*pix_size/SCALE).decompose().value))
-        elif type(pix_size) != int:
-            raise ValueError('`pix_size` should be either type of int '+
+            pix_size = round(((2*size/SCALE).decompose().value))
+        elif type(pix_size) == int:
+            pix_size = size
+        else:
+            raise ValueError('`size` should be either type of int '+
                              'astropy Quantity in angular unit')
         
         img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
@@ -117,13 +119,15 @@ def get_lgs_image_lupton(cra, cdec, pix_size=1600, pix_scale=1):
         raise e
     return rgbimg, wcs
 
-def get_lgs_image(cra, cdec, pix_size=1600, pix_scale=1, **kwargs):
+def get_lgs_image(cra, cdec, size=1600, pix_scale=1, **kwargs):
     try:
-        if type(pix_size) == u.quantity.Quantity:
+        if type(size) == u.quantity.Quantity:
             SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
-            pix_size = round(((2*pix_size/SCALE).decompose().value))
-        elif type(pix_size) != int:
-            raise ValueError('`pix_size` should be either type of int '+
+            pix_size = round(((2*size/SCALE).decompose().value))
+        elif type(pix_size) == int:
+            pix_size = size
+        else:
+            raise ValueError('`size` should be either type of int '+
                              'astropy Quantity in angular unit')
             
         img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
