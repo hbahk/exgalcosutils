@@ -122,7 +122,7 @@ def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=1):
 def get_lgs_image(cra, cdec, size=1600, pix_scale=1, **kwargs):
     try:
         if type(size) == u.quantity.Quantity:
-            SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
+            SCALE = 25/9*1e-4*u.deg * pix_scale  # scale angle of a pixel
             pix_size = round(((2*size/SCALE).decompose().value))
         elif type(pix_size) == int:
             pix_size = size
