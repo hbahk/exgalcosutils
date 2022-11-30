@@ -164,8 +164,12 @@ def plot_offset_dist(c1, c2, tol, ax=None, hist=False,
                                  gridspec_kw={"width_ratios": [4, 1],
                                               "height_ratios": [1, 4]})
         (hhax, nax), (ax, vhax) = axes
+        _axflag = None
     elif ax == None:
         fig, ax = plt.subplots(1, 1, figsize=(7,7))
+        _axflag = None
+    else:
+        _axflag = True
     
     # main scatter plot
     # - default kwargs setting (fmt=".", c="k")
@@ -257,10 +261,11 @@ def plot_offset_dist(c1, c2, tol, ax=None, hist=False,
             plt.draw()    # to populate tick labels
             lab_f = axis.get_yticklabels if ll==True else axis.get_xticklabels
             plt.setp(lab_f()[0], visible=False)
-        
-    plt.tight_layout()
-    plt.subplots_adjust(hspace=0, wspace=0)
-    plt.show()
     
+    if _axflag == None:
+        plt.tight_layout()
+        plt.subplots_adjust(hspace=0, wspace=0)
+        plt.show()
+        
     if return_axes:
         return axes if hist else ax
