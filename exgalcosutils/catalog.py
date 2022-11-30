@@ -103,7 +103,8 @@ def match_catalogs(cat_lowres, cat_highres, tol):
     return idxl, idxh
 #%%    
 
-def plot_offset_dist(c1, c2, tol, hist=False, plot_kwargs={}, hist_kwargs={},
+def plot_offset_dist(c1, c2, tol, ax=None, hist=False,
+                     plot_kwargs={}, hist_kwargs={},
                      circ_kwargs={}, text_kwargs={}, return_axes=False):
     """
     Plot a offset distribution figure for positions of two matched catalogs.
@@ -156,11 +157,14 @@ def plot_offset_dist(c1, c2, tol, hist=False, plot_kwargs={}, hist_kwargs={},
     dra, ddec = dra.to(tol.unit), ddec.to(tol.unit)
     
     if hist:
+        if ax:
+            print('WARNING: `ax` and `hist` are not compatible.'+
+                  ' `ax` option will be ignored.')
         fig, axes = plt.subplots(2, 2, figsize=(7,7),
                                  gridspec_kw={"width_ratios": [4, 1],
                                               "height_ratios": [1, 4]})
         (hhax, nax), (ax, vhax) = axes
-    else:
+    elif ax == None:
         fig, ax = plt.subplots(1, 1, figsize=(7,7))
     
     # main scatter plot
