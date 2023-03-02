@@ -269,3 +269,49 @@ def plot_offset_dist(c1, c2, tol, ax=None, hist=False,
         
     if return_axes:
         return axes if hist else ax
+
+
+#%%
+def completeness_through(x, xbins, match_idx):
+    """
+    This function calculates the completeness of a catalog (cat1)
+    through a specified physical quantity (x) by comparing it to the base
+    catalog (cat2) using pre-matched indices.
+
+    Parameters
+    ----------
+    x : array-like
+        1D array containing the physical quantity to be used for calculating
+        completeness.
+    xbins : array-like
+        1D array containing the bin edges for x.
+    match_idx : array-like
+        1D array containing the indices of matched objects between the two
+        catalogs. This should has the same dimension and order with cat2, like
+        the index array that can be obtained by `match_catalogs`.
+
+    Returns
+    -------
+    comp : array-like
+        1D array containing the completeness values for each bin in xbins.
+        
+    Completeness is defined as the fraction of objects in cat1 that can be
+    found in cat2. The function loops over each bin in xbins and calculates
+    the completeness within that bin. If the number of objects in the bin is
+    zero, the completeness for that bin is set to NaN. The completeness values
+    are returned as an array.
+    """
+    comp = np.empty_like(xbins)
+    for i in range(len(xbins)-1):
+        upp, low = xbins[i+1], xbins[i]
+        x_num = np.count_nonzero((x > low) & (x < upp))
+        matched_num = np.count_nonzero((x[match_idx] > low) &
+                                       (x[match_idx] < upp))
+        comp_bin = matched_num / x_num if x_num>0 else np.nan
+        comp[i+1] = comp_bin
+        if i==0:
+            comp[i] = comp_bin
+            
+    return comp
+                
+                
