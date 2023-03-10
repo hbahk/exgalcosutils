@@ -16,7 +16,6 @@ from astropy.visualization import make_lupton_rgb
 from astropy.wcs import WCS
 from astropy.visualization.wcsaxes import SphericalCircle
 from matplotlib import pyplot as plt
-from matplotlib import rc
 # from PIL import Image
 from urllib.error import HTTPError
 # from io import BytesIO
@@ -24,8 +23,109 @@ from exgalcosutils.catalog import match_catalogs
 from astropy.utils.data import conf
 import astropy.units as u
 
-__all__ = ['get_lgs_galaxies', 'get_lgs_image_lupton', 'get_lgs_image',
+__all__ = ['get_lgs_image', 'get_lgs_image_lupton', 'get_lgs_galaxies',
            'get_info_fig']
+
+def get_lgs_image(cra, cdec, size=1600, pix_scale=1):
+    """
+    Retrieve a grz color cutout image near given RA/Dec from DESI Legacy Survey
+    DR9.
+
+    Parameters
+    ----------
+    cra, cdec : float or int in degree unit
+        The central RA, Dec in degrees, for the return image.
+    size : int or Quantity with angular unit, optional
+        If given type is int, then this represents the length of the pixels for
+        return image array. if given type is angle Quantity, this represents 
+        the size of the image in angular size. The default is 1600.
+    pix_scale : float, optional
+        The sampling size of the returning image. Users may want to set this
+        below unity. The default is 1.
+
+    Returns
+    -------
+    rgbimg : numpy array of shape (N, N, 3)
+        The array of RGB color image.
+    wcs : WCS axes
+        astropy WCS object with three axes 'RA---TAN', 'DEC--TAN', ''.
+        
+    Examples
+    --------
+    
+    >>> from exgalcosutils.from_legacy_survey import get_leg_image
+    >>> from astropy import unit as u
+    >>> from matplotlib import pyplot as plt
+    >>> cra, cdec = 128.8913, -1.8492
+    >>> rgbimg, wcs = get_lgs_image(cra, cdec, size=1*u.arcmin, pix_scale=0.3)
+    >>> fig = plt.figure(figsize=(15,15))
+    >>> ax = fig.add_subplot(111, projection=wcs, slices=('x','y',0))
+    >>> ax.imshow(rgbimg)
+    >>> ax.set_xlabel('RA')
+    >>> ax.set_ylabel('DEC')
+
+    """
+    try:
+        if type(size) == u.quantity.Quantity:
+            SCALE = 25/9*1e-4*u.deg * pix_scale  # scale angle of a pixel
+            pix_size = round(((2*size/SCALE).decompose().value))
+        elif type(size) == int:
+            pix_size = size
+        else:
+            raise ValueError('`size` should be either type of int '+
+                             'astropy Quantity in angular unit')
+            
+        img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
+        + f'ra={cra:.4f}&dec={cdec:.4f}&width={pix_size}&height={pix_size}'\
+                            + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
+
+        img_hdu = fits.open(img_query_url)
+
+        wcs = WCS(img_hdu[0].header)
+        gimg = img_hdu[0].data[0]
+        rimg = img_hdu[0].data[1]
+        zimg = img_hdu[0].data[2]
+        # rgbimg = decals_internal_rgb(imgs=[gimg, rimg, zimg],
+        #                              bands=['g','r','z'], **kwargs)
+        rgbimg = dr2_rgb(rimgs=[gimg, rimg, zimg],
+                          bands=['g','r','z'])
+
+    except HTTPError:
+        return None
+    except Exception as e:
+        raise e
+    return rgbimg, wcs
+
+
+def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=1):
+    try:
+        if type(size) == u.quantity.Quantity:
+            SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
+            pix_size = round(((2*size/SCALE).decompose().value))
+        elif type(size) == int:
+            pix_size = size
+        else:
+            raise ValueError('`size` should be either type of int '+
+                             'astropy Quantity in angular unit')
+        
+        img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
+                        + f'ra={cra:.4f}&dec={cdec:.4f}&width={pix_size}&height={pix_size}'\
+                            + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
+
+        img_hdu = fits.open(img_query_url)
+
+        wcs = WCS(img_hdu[0].header)
+        gimg = img_hdu[0].data[0]
+        rimg = img_hdu[0].data[1]
+        zimg = img_hdu[0].data[2]
+        rgbimg = make_lupton_rgb(zimg, rimg, gimg, stretch=0.1)
+
+    except HTTPError:
+        return None
+    except Exception as e:
+        raise e
+    return rgbimg, wcs
+
 
 def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
     try:
@@ -90,69 +190,12 @@ def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
     except Exception as e:
         raise e
 
-def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=1):
-    try:
-        if type(size) == u.quantity.Quantity:
-            SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
-            pix_size = round(((2*size/SCALE).decompose().value))
-        elif type(size) == int:
-            pix_size = size
-        else:
-            raise ValueError('`size` should be either type of int '+
-                             'astropy Quantity in angular unit')
-        
-        img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
-                        + f'ra={cra:.4f}&dec={cdec:.4f}&width={pix_size}&height={pix_size}'\
-                            + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
-
-        img_hdu = fits.open(img_query_url)
-
-        wcs = WCS(img_hdu[0].header)
-        gimg = img_hdu[0].data[0]
-        rimg = img_hdu[0].data[1]
-        zimg = img_hdu[0].data[2]
-        rgbimg = make_lupton_rgb(zimg, rimg, gimg, stretch=0.1)
-
-    except HTTPError:
-        return None
-    except Exception as e:
-        raise e
-    return rgbimg, wcs
-
-def get_lgs_image(cra, cdec, size=1600, pix_scale=1, **kwargs):
-    try:
-        if type(size) == u.quantity.Quantity:
-            SCALE = 25/9*1e-4*u.deg * pix_scale  # scale angle of a pixel
-            pix_size = round(((2*size/SCALE).decompose().value))
-        elif type(size) == int:
-            pix_size = size
-        else:
-            raise ValueError('`size` should be either type of int '+
-                             'astropy Quantity in angular unit')
-            
-        img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
-                        + f'ra={cra:.4f}&dec={cdec:.4f}&width={pix_size}&height={pix_size}'\
-                            + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
-
-        img_hdu = fits.open(img_query_url)
-
-        wcs = WCS(img_hdu[0].header)
-        gimg = img_hdu[0].data[0]
-        rimg = img_hdu[0].data[1]
-        zimg = img_hdu[0].data[2]
-        rgbimg = decals_internal_rgb(imgs=[gimg, rimg, zimg],
-                                     bands=['g','r','z'], **kwargs)
-
-    except HTTPError:
-        return None
-    except Exception as e:
-        raise e
-    return rgbimg, wcs
 
 def nmgy_to_abmag(f):
     # Pogson relation
     # 1 maggy corresponds to approximately 3361 Jy
     return 22.5 - 2.5*np.log10(f)
+
 
 def get_info_fig(target, ang_limit, annotate=False, mag_limit=20):
     cra, cdec = target['RAdeg'], target['DEdeg']
@@ -274,3 +317,54 @@ def decals_internal_rgb(imgs, bands, mnmx=None, arcsinh=None, scales=None,
     if clip:
         return np.clip(rgb, 0., 1.)
     return rgb
+
+#%% https://github.com/legacysurvey/imagine/blob/main/map/views.py
+# code by Dustin Lang
+
+def sdss_rgb(imgs, bands, scales=None, m=0.02):
+    import numpy as np
+    rgbscales = {'u': (2,1.5), #1.0,
+                 'g': (2,2.5),
+                 'r': (1,1.5),
+                 'i': (0,1.0),
+                 'z': (0,0.4), #0.3
+                 }
+    if scales is not None:
+        rgbscales.update(scales)
+
+    I = 0
+    for img,band in zip(imgs, bands):
+        plane,scale = rgbscales[band]
+        img = np.maximum(0, img * scale + m)
+        I = I + img
+    I /= len(bands)
+        
+    # b,g,r = [rimg * rgbscales[b] for rimg,b in zip(imgs, bands)]
+    # r = np.maximum(0, r + m)
+    # g = np.maximum(0, g + m)
+    # b = np.maximum(0, b + m)
+    # I = (r+g+b)/3.
+    Q = 20
+    fI = np.arcsinh(Q * I) / np.sqrt(Q)
+    I += (I == 0.) * 1e-6
+    H,W = I.shape
+    rgb = np.zeros((H,W,3), np.float32)
+    for img,band in zip(imgs, bands):
+        plane,scale = rgbscales[band]
+        rgb[:,:,plane] = (img * scale + m) * fI / I
+
+    # R = fI * r / I
+    # G = fI * g / I
+    # B = fI * b / I
+    # # maxrgb = reduce(np.maximum, [R,G,B])
+    # # J = (maxrgb > 1.)
+    # # R[J] = R[J]/maxrgb[J]
+    # # G[J] = G[J]/maxrgb[J]
+    # # B[J] = B[J]/maxrgb[J]
+    # rgb = np.dstack((R,G,B))
+    rgb = np.clip(rgb, 0, 1)
+    return rgb
+
+def dr2_rgb(rimgs, bands, **ignored):
+    return sdss_rgb(rimgs, bands, scales=dict(g=(2,6.0), r=(1,3.4), z=(0,2.2)),
+                    m=0.03)
