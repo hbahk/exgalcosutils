@@ -26,10 +26,10 @@ import astropy.units as u
 __all__ = ['get_lgs_image', 'get_lgs_image_lupton', 'get_lgs_galaxies',
            'get_info_fig']
 
-def get_lgs_image(cra, cdec, size=1600, pix_scale=1):
+def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10):
     """
     Retrieve a grz color cutout image near given RA/Dec from DESI Legacy Survey
-    DR9.
+    DR10 (or DR9).
 
     Parameters
     ----------
@@ -41,7 +41,10 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=1):
         the size of the image in angular size. The default is 1600.
     pix_scale : float, optional
         The sampling size of the returning image. Users may want to set this
-        below unity. The default is 1.
+        below unity. The default is 0.262, which corresponds to nanomaggy unit.
+    dr : int (9 or 10), optional
+        The number of data release of DESI Legacy Survey from which returning
+        image will be taken. The default is 10.
 
     Returns
     -------
@@ -53,11 +56,11 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=1):
     Examples
     --------
     
-    >>> from exgalcosutils.from_legacy_survey import get_leg_image
+    >>> from exgalcosutils.from_legacy_survey import get_lgs_image
     >>> from astropy import unit as u
     >>> from matplotlib import pyplot as plt
     >>> cra, cdec = 128.8913, -1.8492
-    >>> rgbimg, wcs = get_lgs_image(cra, cdec, size=1*u.arcmin, pix_scale=0.3)
+    >>> rgbimg, wcs = get_lgs_image(cra, cdec, size=1*u.arcmin)
     >>> fig = plt.figure(figsize=(15,15))
     >>> ax = fig.add_subplot(111, projection=wcs, slices=('x','y',0))
     >>> ax.imshow(rgbimg)
@@ -65,30 +68,50 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=1):
     >>> ax.set_ylabel('DEC')
 
     """
+    if type(size) == u.quantity.Quantity:
+        SCALE = 25/9*1e-4*u.deg * pix_scale  # scale angle of a pixel
+        pix_size = round(((2*size/SCALE).decompose().value))
+    elif type(size) == int:
+        pix_size = size
+    else:
+        raise ValueError('`size` should be either type of int '+
+                         'astropy Quantity in angular unit')
     try:
-        if type(size) == u.quantity.Quantity:
-            SCALE = 25/9*1e-4*u.deg * pix_scale  # scale angle of a pixel
-            pix_size = round(((2*size/SCALE).decompose().value))
-        elif type(size) == int:
-            pix_size = size
-        else:
-            raise ValueError('`size` should be either type of int '+
-                             'astropy Quantity in angular unit')
-            
-        img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
-        + f'ra={cra:.4f}&dec={cdec:.4f}&width={pix_size}&height={pix_size}'\
+        if dr == 9:
+            img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
+            +f'ra={cra:.8f}&dec={cdec:.8f}&width={pix_size}&height={pix_size}'\
                             + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
 
-        img_hdu = fits.open(img_query_url)
+            img_hdu = fits.open(img_query_url)
+            wcs = WCS(img_hdu[0].header)
 
-        wcs = WCS(img_hdu[0].header)
-        gimg = img_hdu[0].data[0]
-        rimg = img_hdu[0].data[1]
-        zimg = img_hdu[0].data[2]
-        # rgbimg = decals_internal_rgb(imgs=[gimg, rimg, zimg],
-        #                              bands=['g','r','z'], **kwargs)
-        rgbimg = dr2_rgb(rimgs=[gimg, rimg, zimg],
-                          bands=['g','r','z'])
+            gimg = img_hdu[0].data[0]
+            rimg = img_hdu[0].data[1]
+            zimg = img_hdu[0].data[2]
+            
+            rgbimg = dr2_rgb(rimgs=[gimg, rimg, zimg], bands=['g','r','z'])
+            
+        elif dr == 10:
+            img_query_url = 'https://www.legacysurvey.org/viewer/cutout.fits?'\
+            +f'ra={cra:.8f}&dec={cdec:.8f}&width={pix_size}&height={pix_size}'\
+                + f'&layer=ls-dr10&pixscale={pix_scale}&bands=griz'
+
+            img_hdu = fits.open(img_query_url)
+            h = img_hdu[0].header
+            wcs = WCS(h)
+            
+            if h['BANDS'] == 'grz':
+                gimg = img_hdu[0].data[0]
+                rimg = img_hdu[0].data[1]
+                zimg = img_hdu[0].data[2]
+                rgbimg = dr2_rgb(rimgs=[gimg, rimg, zimg], bands=['g','r','z'])
+            elif h['BANDS'] == 'griz': 
+                gimg = img_hdu[0].data[0]
+                rimg = img_hdu[0].data[1]
+                iimg = img_hdu[0].data[2]
+                zimg = img_hdu[0].data[3]
+                rgbimg = dr10_griz_rgb(rimgs=[gimg, rimg, iimg, zimg],
+                                       bands=['g','r','i','z'])
 
     except HTTPError:
         return None
@@ -368,3 +391,53 @@ def sdss_rgb(imgs, bands, scales=None, m=0.02):
 def dr2_rgb(rimgs, bands, **ignored):
     return sdss_rgb(rimgs, bands, scales=dict(g=(2,6.0), r=(1,3.4), z=(0,2.2)),
                     m=0.03)
+
+def dr10_griz_rgb(imgs, bands, **kwargs):
+    m=0.03
+    Q=20
+    mnmx=None
+    clip=True
+    allbands = ['g','r','i','z']
+    rgb_stretch_factor = 1.5
+    rgbscales=dict(
+        g =    (2, 6.0 * rgb_stretch_factor),
+        r =    (1, 3.4 * rgb_stretch_factor),
+        i =    (0, 3.0 * rgb_stretch_factor),
+        z =    (0, 2.2 * rgb_stretch_factor),
+        )
+    I = 0
+    for img,band in zip(imgs, bands):
+        plane,scale = rgbscales[band]
+        img = np.maximum(0, img * scale + m)
+        I = I + img
+    I /= len(bands)
+    if Q is not None:
+        fI = np.arcsinh(Q * I) / np.sqrt(Q)
+        I += (I == 0.) * 1e-6
+        I = fI / I
+    H,W = I.shape
+    rgb = np.zeros((H,W,3), np.float32)
+
+    rgbvec = dict(
+        g = (0.,   0.,  0.75),
+        r = (0.,   0.5, 0.25),
+        i = (0.25, 0.5, 0.),
+        z = (0.75, 0.,  0.))
+
+    for img,band in zip(imgs, bands):
+        _,scale = rgbscales[band]
+        rf,gf,bf = rgbvec[band]
+        if mnmx is None:
+            v = (img * scale + m) * I
+        else:
+            mn,mx = mnmx
+            v = ((img * scale + m) - mn) / (mx - mn)
+        if clip:
+            v = np.clip(v, 0, 1)
+        if rf != 0.:
+            rgb[:,:,0] += rf*v
+        if gf != 0.:
+            rgb[:,:,1] += gf*v
+        if bf != 0.:
+            rgb[:,:,2] += bf*v
+    return rgb
