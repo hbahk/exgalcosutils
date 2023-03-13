@@ -114,7 +114,7 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10):
                                        bands=['g','r','i','z'])
 
     except HTTPError:
-        return None
+        return None, None
     except Exception as e:
         raise e
     return rgbimg, wcs
