@@ -1,6 +1,6 @@
 # VSCode autosaves & inractive python
 .vscode/
-._.*
+._*
 Interactive*.ipynb
 .ipynb_checkpoints/
 
