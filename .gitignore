@@ -1,3 +1,8 @@
+# VSCode autosaves & inractive python
+.vscode/
+._.*
+Interactive*.ipynb
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -22,6 +22,7 @@ from urllib.error import HTTPError
 from exgalcosutils.catalog import match_catalogs
 from astropy.utils.data import conf
 import astropy.units as u
+from astropy.nddata import CCDData
 
 __all__ = ['get_lgs_image', 'get_lgs_image_lupton', 'get_lgs_galaxies',
            'get_info_fig']
@@ -120,7 +121,7 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10):
     return rgbimg, wcs
 
 
-def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=1):
+def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=0.262):
     try:
         if type(size) == u.quantity.Quantity:
             SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
@@ -212,6 +213,37 @@ def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
         return None
     except Exception as e:
         raise e
+
+
+def get_wise_image(cra, cdec, band=1, size_pix=300, pix_scale=2.75):
+    """Get a WISE image from the Legacy Survey.
+
+    Parameters
+    ----------
+    cra, cdec : float
+        The RA, Dec of the center of the image.
+    band : int
+        The WISE band to get. Should be 1, 2, 3, or 4.
+    size_pix : int
+        The size of the image in pixels.
+    pix_scale : float
+        The pixel scale of the image in arcseconds per pixel.
+
+    Returns
+    -------
+    ccd : astropy.nddata.CCDData
+        The image data.
+    """
+    assert band in [1, 2, 3, 4], 'band must be 1, 2, 3, or 4'
+    # via legacy survey url
+    wiseurl = 'https://www.legacysurvey.org/viewer/fits-cutout?' \
+              + f'ra={cra:.4f}&dec={cdec:.4f}&' \
+              + f'width={size_pix}&height={size_pix}&' \
+              + 'pixscale=0.262&layer=unwise-neo4&bands=1'
+    ccd = CCDData.read(wiseurl, unit='mJy') # temporary unit
+    # hdu = fits.open(wiseurl)
+    
+    return ccd
 
 
 def nmgy_to_abmag(f):
