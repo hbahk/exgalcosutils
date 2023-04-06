@@ -239,7 +239,7 @@ def get_wise_image(cra, cdec, size_pix=300, pix_scale=2.75, **kwargs):
               + f'pixscale={pix_scale}&layer=unwise-neo6'
     # ccd = CCDData.read(wiseurl, unit='mJy') # temporary unit
     hdu = fits.open(wiseurl, **kwargs)
-    wcs = hdu[0].header
+    wcs = WCS(hdu[0].header)
     img1 = hdu[0].data[0]
     img2 = hdu[0].data[1]
     
