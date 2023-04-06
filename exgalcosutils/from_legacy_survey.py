@@ -27,7 +27,7 @@ from astropy.nddata import CCDData
 __all__ = ['get_lgs_image', 'get_lgs_image_lupton', 'get_lgs_galaxies',
            'get_info_fig']
 
-def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10):
+def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
     """
     Retrieve a grz color cutout image near given RA/Dec from DESI Legacy Survey
     DR10 (or DR9).
@@ -83,7 +83,7 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10):
             +f'ra={cra:.8f}&dec={cdec:.8f}&width={pix_size}&height={pix_size}'\
                             + f'&layer=ls-dr9&pixscale={pix_scale}&band=grz'
 
-            img_hdu = fits.open(img_query_url)
+            img_hdu = fits.open(img_query_url, **kwargs)
             wcs = WCS(img_hdu[0].header)
 
             gimg = img_hdu[0].data[0]
@@ -97,7 +97,7 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10):
             +f'ra={cra:.8f}&dec={cdec:.8f}&width={pix_size}&height={pix_size}'\
                 + f'&layer=ls-dr10&pixscale={pix_scale}&bands=griz'
 
-            img_hdu = fits.open(img_query_url)
+            img_hdu = fits.open(img_query_url, **kwargs)
             h = img_hdu[0].header
             wcs = WCS(h)
             
@@ -215,7 +215,7 @@ def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
         raise e
 
 
-def get_wise_image(cra, cdec, size_pix=300, pix_scale=2.75):
+def get_wise_image(cra, cdec, size_pix=300, pix_scale=2.75, **kwargs):
     """Get a unWISE-NEO6 image from the Legacy Survey.
 
     Parameters
@@ -238,7 +238,7 @@ def get_wise_image(cra, cdec, size_pix=300, pix_scale=2.75):
               + f'width={size_pix}&height={size_pix}&' \
               + f'pixscale={pix_scale}&layer=unwise-neo6'
     # ccd = CCDData.read(wiseurl, unit='mJy') # temporary unit
-    hdu = fits.open(wiseurl)
+    hdu = fits.open(wiseurl, **kwargs)
     wcs = hdu[0].header
     img1 = hdu[0].data[0]
     img2 = hdu[0].data[1]
