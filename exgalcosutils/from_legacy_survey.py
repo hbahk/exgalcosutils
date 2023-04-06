@@ -215,15 +215,13 @@ def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
         raise e
 
 
-def get_wise_image(cra, cdec, band=1, size_pix=300, pix_scale=2.75):
-    """Get a WISE image from the Legacy Survey.
+def get_wise_image(cra, cdec, size_pix=300, pix_scale=2.75):
+    """Get a unWISE-NEO6 image from the Legacy Survey.
 
     Parameters
     ----------
     cra, cdec : float
         The RA, Dec of the center of the image.
-    band : int
-        The WISE band to get. Should be 1, 2, 3, or 4.
     size_pix : int
         The size of the image in pixels.
     pix_scale : float
@@ -234,16 +232,20 @@ def get_wise_image(cra, cdec, band=1, size_pix=300, pix_scale=2.75):
     ccd : astropy.nddata.CCDData
         The image data.
     """
-    assert band in [1, 2, 3, 4], 'band must be 1, 2, 3, or 4'
     # via legacy survey url
     wiseurl = 'https://www.legacysurvey.org/viewer/fits-cutout?' \
-              + f'ra={cra:.4f}&dec={cdec:.4f}&' \
+              + f'ra={cra}&dec={cdec}&' \
               + f'width={size_pix}&height={size_pix}&' \
-              + 'pixscale=0.262&layer=unwise-neo4&bands=1'
-    ccd = CCDData.read(wiseurl, unit='mJy') # temporary unit
-    # hdu = fits.open(wiseurl)
+              + f'pixscale={pix_scale}&layer=unwise-neo6'
+    # ccd = CCDData.read(wiseurl, unit='mJy') # temporary unit
+    hdu = fits.open(wiseurl)
+    wcs = hdu[0].header
+    img1 = hdu[0].data[0]
+    img2 = hdu[0].data[1]
     
-    return ccd
+    rgbimg = _unwise_to_rgb([img1, img2])
+    
+    return rgbimg, wcs
 
 
 def nmgy_to_abmag(f):
@@ -424,6 +426,7 @@ def dr2_rgb(rimgs, bands, **ignored):
     return sdss_rgb(rimgs, bands, scales=dict(g=(2,6.0), r=(1,3.4), z=(0,2.2)),
                     m=0.03)
 
+
 def dr10_griz_rgb(imgs, bands, **kwargs):
     m=0.03
     Q=20
@@ -472,4 +475,55 @@ def dr10_griz_rgb(imgs, bands, **kwargs):
             rgb[:,:,1] += gf*v
         if bf != 0.:
             rgb[:,:,2] += bf*v
+    return rgb
+
+
+def _unwise_to_rgb(imgs, bands=[1,2],
+                   scale1=1.,
+                   scale2=1.,
+                   arcsinh=1./20.,
+                   mn=-20.,
+                   mx=10000., 
+                   w1weight=9.):
+    img = imgs[0]
+    H,W = img.shape
+
+    ## FIXME
+    assert(bands == [1,2])
+    w1,w2 = imgs
+    
+    rgb = np.zeros((H, W, 3), np.uint8)
+
+    # Old:
+    # scale1 = 50.
+    # scale2 = 50.
+    # mn,mx = -1.,100.
+    # arcsinh = 1.
+
+    img1 = w1 / scale1
+    img2 = w2 / scale2
+
+    if arcsinh is not None:
+        def nlmap(x):
+            return np.arcsinh(x * arcsinh) / np.sqrt(arcsinh)
+
+        # intensity -- weight W1 more
+        bright = (w1weight * img1 + img2) / (w1weight + 1.)
+        I = nlmap(bright)
+
+        # color -- abs here prevents weird effects when, eg, W1>0 and W2<0.
+        mean = np.maximum(1e-6, (np.abs(img1)+np.abs(img2))/2.)
+        img1 = np.abs(img1)/mean * I
+        img2 = np.abs(img2)/mean * I
+
+        mn = nlmap(mn)
+        mx = nlmap(mx)
+
+    img1 = (img1 - mn) / (mx - mn)
+    img2 = (img2 - mn) / (mx - mn)
+
+    rgb[:,:,2] = (np.clip(img1, 0., 1.) * 255).astype(np.uint8)
+    rgb[:,:,0] = (np.clip(img2, 0., 1.) * 255).astype(np.uint8)
+    rgb[:,:,1] = rgb[:,:,0]/2 + rgb[:,:,2]/2
+
     return rgb
