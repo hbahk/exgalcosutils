@@ -63,7 +63,7 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
     >>> cra, cdec = 128.8913, -1.8492
     >>> rgbimg, wcs = get_lgs_image(cra, cdec, size=1*u.arcmin)
     >>> fig = plt.figure(figsize=(15,15))
-    >>> ax = fig.add_subplot(111, projection=wcs, slices=('x','y',0))
+    >>> ax = fig.add_subplot(111, projection=wcs.celestial)
     >>> ax.imshow(rgbimg)
     >>> ax.set_xlabel('RA')
     >>> ax.set_ylabel('DEC')
@@ -216,7 +216,7 @@ def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, **kwargs):
 
 
 def get_wise_image(cra, cdec, size_pix=300, pix_scale=2.75, **kwargs):
-    """Get a unWISE-NEO6 image from the Legacy Survey.
+    """Get a unWISE-NEO7 image from the Legacy Survey.
 
     Parameters
     ----------
@@ -236,7 +236,7 @@ def get_wise_image(cra, cdec, size_pix=300, pix_scale=2.75, **kwargs):
     wiseurl = 'https://www.legacysurvey.org/viewer/fits-cutout?' \
               + f'ra={cra}&dec={cdec}&' \
               + f'width={size_pix}&height={size_pix}&' \
-              + f'pixscale={pix_scale}&layer=unwise-neo6'
+              + f'pixscale={pix_scale}&layer=unwise-neo7'
     # ccd = CCDData.read(wiseurl, unit='mJy') # temporary unit
     hdu = fits.open(wiseurl, **kwargs)
     wcs = WCS(hdu[0].header)
