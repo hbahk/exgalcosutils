@@ -70,13 +70,18 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
 
     """
     if type(size) == u.quantity.Quantity:
-        SCALE = 25/9*1e-4*u.deg * pix_scale  # scale angle of a pixel
-        pix_size = round(((2*size/SCALE).decompose().value))
+        SCALE = pix_scale*u.arcsec  # scale angle of a pixel
+        pix_size = round(((size/SCALE).to('').value))
     elif type(size) == int:
         pix_size = size
     else:
         raise ValueError('`size` should be either type of int '+
                          'astropy Quantity in angular unit')
+        
+    if pix_size > 3000:
+        print('Warning: The maximum size of image is 3000 pixels. '+
+              'The size of the image will be set to 3000 pixels.')
+        
     try:
         if dr == 9:
             img_query_url = 'https://www.legacysurvey.org/viewer/fits-cutout?'\
@@ -111,7 +116,7 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
                 rimg = img_hdu[0].data[1]
                 iimg = img_hdu[0].data[2]
                 zimg = img_hdu[0].data[3]
-                rgbimg = dr10_griz_rgb(rimgs=[gimg, rimg, iimg, zimg],
+                rgbimg = dr10_griz_rgb(imgs=[gimg, rimg, iimg, zimg],
                                        bands=['g','r','i','z'])
 
     except HTTPError:
@@ -124,8 +129,8 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
 def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=0.262):
     try:
         if type(size) == u.quantity.Quantity:
-            SCALE = 25/9*1e-4*u.deg  # scale angle of a pixel
-            pix_size = round(((2*size/SCALE).decompose().value))
+            SCALE = pix_scale*u.arcsec  # scale angle of a pixel
+            pix_size = round(((size/SCALE).decompose().value))
         elif type(size) == int:
             pix_size = size
         else:
