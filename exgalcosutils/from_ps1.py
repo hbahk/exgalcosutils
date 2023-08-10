@@ -35,7 +35,7 @@ def get_ps1_image(cra, cdec, size=240, output_size=None):
     hdu = fits.open(url[0])
     wcs = WCS(hdu[0].header)
     
-    rgbimg = getcolorim(cra, cdec, size=size, output_size=output_size,
+    rgbimg = getcolorim(cra, cdec, size=pix_len, output_size=output_size,
                         filters="grz", format="jpg")
     
     return rgbimg, wcs
