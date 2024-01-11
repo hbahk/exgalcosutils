@@ -27,7 +27,8 @@ from astropy.nddata import CCDData
 __all__ = ['get_lgs_image', 'get_lgs_image_lupton', 'get_lgs_galaxies',
            'get_info_fig']
 
-def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
+def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10,
+                  return_hdul=False, **kwargs):
     """
     Retrieve a grz color cutout image near given RA/Dec from DESI Legacy Survey
     DR10 (or DR9).
@@ -46,6 +47,9 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
     dr : int (9 or 10), optional
         The number of data release of DESI Legacy Survey from which returning
         image will be taken. The default is 10.
+    return_hdul : bool, optional
+        If True, the function returns the HDUList object of the image. The
+        default is False.
 
     Returns
     -------
@@ -53,6 +57,9 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
         The array of RGB color image.
     wcs : WCS axes
         astropy WCS object with three axes 'RA---TAN', 'DEC--TAN', ''.
+    img_hdu : HDUList object
+        The HDUList object of the image. This is returned only when
+        `return_hdul` is True.
         
     Examples
     --------
@@ -123,7 +130,10 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10, **kwargs):
         return None, None
     except Exception as e:
         raise e
-    return rgbimg, wcs
+    if return_hdul:
+        return rgbimg, wcs, img_hdu
+    else:
+        return rgbimg, wcs
 
 
 def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=0.262):
@@ -157,61 +167,59 @@ def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=0.262):
 
 
 def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, timeout=3600,
-                     **kwargs):
+                     dr=10, **kwargs):
     
     try:
+        half_width = ang_limit.to('deg').value
+
+        ralo, rahi = np.array([-1.,1.])*half_width/np.cos(cdec*np.pi/180) + cra
+        declo, dechi = np.array([-1.,1.])*half_width + cdec
+
+        photz_url = 'https://www.legacysurvey.org/viewer/photoz-dr9/1/cat.json?'
+        cat_bbox = f'ralo={ralo:.4f}&rahi={rahi:.4f}' \
+                + f'&declo={declo:.4f}&dechi={dechi:.4f}'
+
+        photz_query_url = photz_url + cat_bbox
         with conf.set_temp('remote_timeout', timeout):
-            half_width = ang_limit.to('deg').value
+            ptab = Table.read(photz_query_url, format='pandas.json')
+        if len(ptab)==0:
+            return None
 
-            ralo, rahi = np.array([-1.,1.])*half_width/np.cos(cdec) + cra
-            declo, dechi = np.array([-1.,1.])*half_width + cdec
+        lgs_url = f'https://www.legacysurvey.org/viewer/ls-dr{dr}/cat.fits?'
+        query_url = lgs_url + cat_bbox
 
-            photz_url = 'https://www.legacysurvey.org/viewer/photoz-dr9/1/cat.json?'
-            cat_bbox = f'ralo={ralo:.4f}&rahi={rahi:.4f}' \
-                    + f'&declo={declo:.4f}&dechi={dechi:.4f}'
+        with conf.set_temp('remote_timeout', timeout):
+            hdu = fits.open(query_url)
 
-            photz_query_url = photz_url + cat_bbox
-            with conf.set_temp('remote_timeout', 600.0):
-                ptab = Table.read(photz_query_url, format='pandas.json')
-            if len(ptab)==0:
-                return None
+        # _tab_ls = Table.read(query_url)
 
-            lgs_url = 'https://www.legacysurvey.org/viewer/ls-dr9/cat.fits?'
-            query_url = lgs_url + cat_bbox
+        if get_image:
+            rgbimg, wcs = get_lgs_image(cra, cdec, **kwargs)
 
+        tab_ls = Table([hdu[1].data['ra'], hdu[1].data['dec'],
+                        hdu[1].data['type'], hdu[1].data['flux_g'],
+                        hdu[1].data['flux_r'], hdu[1].data['flux_z']],
+                        names=['ra', 'dec', 'type',
+                            'flux_g', 'flux_r', 'flux_z'])
 
-            with conf.set_temp('remote_timeout', 600.0):
-                hdu = fits.open(query_url)
+        lco = SkyCoord(ra=tab_ls['ra'], dec=tab_ls['dec'], unit='deg')
+        pradec = np.vstack(ptab['rd'])
+        pco = SkyCoord(ra=pradec[:,0], dec=pradec[:,1], unit='deg')
+        il, ip = match_catalogs(lco, pco, 1.0)
 
-            # _tab_ls = Table.read(query_url)
+        tab = hstack([tab_ls[il], ptab['phot_z_mean', 'phot_z_std'][ip]])
 
-            if get_image:
-                rgbimg, wcs = get_lgs_image(cra, cdec, **kwargs)
+        # to return a table that comprises galaxies only.
+        type_mask = np.logical_not(np.isin(tab['type'], ['PSF', 'DUP']))
+        gtab = tab[type_mask]
 
-            tab_ls = Table([hdu[1].data['ra'], hdu[1].data['dec'],
-                            hdu[1].data['type'], hdu[1].data['flux_g'],
-                            hdu[1].data['flux_r'], hdu[1].data['flux_z']],
-                            names=['ra', 'dec', 'type',
-                                'flux_g', 'flux_r', 'flux_z'])
+        # to screen the targets outside the cone with angular radius of ang_limit.
+        cco = SkyCoord(ra=cra, dec=cdec, unit='deg')
+        gco = SkyCoord(ra=gtab['ra'].data, dec=gtab['dec'].data, unit='deg')
 
-            lco = SkyCoord(ra=tab_ls['ra'], dec=tab_ls['dec'], unit='deg')
-            pradec = np.vstack(ptab['rd'])
-            pco = SkyCoord(ra=pradec[:,0], dec=pradec[:,1], unit='deg')
-            il, ip = match_catalogs(lco, pco, 1.0)
-
-            tab = hstack([tab_ls[il], ptab['phot_z_mean', 'phot_z_std'][ip]])
-
-            # to return a table that comprises galaxies only.
-            type_mask = np.logical_not(np.isin(tab['type'], ['PSF', 'DUP']))
-            gtab = tab[type_mask]
-
-            # to screen the targets outside the cone with angular radius of ang_limit.
-            cco = SkyCoord(ra=cra, dec=cdec, unit='deg')
-            gco = SkyCoord(ra=gtab['ra'].data, dec=gtab['dec'].data, unit='deg')
-
-            sep = cco.separation(gco)
-            gtab['sep'] = sep
-            cone_mask = sep < ang_limit
+        sep = cco.separation(gco)
+        gtab['sep'] = sep
+        cone_mask = sep < ang_limit
 
         if get_image:
             return gtab[cone_mask], rgbimg, wcs
