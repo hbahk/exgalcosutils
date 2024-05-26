@@ -251,7 +251,7 @@ def init_sky_moc(
     ax.coords[1].set_ticks(base_yticks * u.deg)
     ax.coords[1].set_major_formatter('dd')
 
-    # ax.grid(color='k', linestyle="dotted")
+    ax.grid(color='k', linestyle="dotted")
     
     # Draw the galactic plane
     if galactic_plane_color is not None:
