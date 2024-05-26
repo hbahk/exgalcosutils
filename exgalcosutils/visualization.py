@@ -205,6 +205,7 @@ def init_sky_moc(
     galactic_plane_color="red",
     ecliptic_plane_color="red",
     allsky=True,
+    return_wcs=False,
 ):
     """Initialize matplotlib axes with a projection of the full sky, using WCS
     projection from mocpy.
@@ -311,5 +312,8 @@ def init_sky_moc(
         ymax = max(ylim1, ylim2)
         ax.set_ylim(ymin, ymax)
     
-    return ax
+    if return_wcs:
+        return ax, wcs
+    else:
+        return ax
         
