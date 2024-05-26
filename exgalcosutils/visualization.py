@@ -5,7 +5,7 @@ import astropy.units as u
 import numpy as np
 from astropy.coordinates import ICRS, SkyCoord, Angle
 from matplotlib import pyplot as plt
-from mocpy import MOC, WCS
+from mocpy import WCS
 from astropy.visualization.wcsaxes.frame import EllipticalFrame
 from matplotlib import patheffects
 
@@ -200,10 +200,11 @@ def init_sky(
 
 
 def init_sky_moc(
-    projection="MOL",
+    projection="AIT",
     ra_center=120,
     galactic_plane_color="red",
     ecliptic_plane_color="red",
+    allsky=True,
 ):
     """Initialize matplotlib axes with a projection of the full sky, using WCS
     projection from mocpy.
@@ -227,9 +228,9 @@ def init_sky_moc(
     :class:`~matplotlib.axes.Axes`
         A matplotlib Axes object.
     """
-    fig = plt.figure(figsize=(10.0, 5.0), dpi=100)
+    fig = plt.figure(figsize=(10, 5))
     wcs = WCS(fig=fig,
-            fov=160*u.deg,
+            fov=360*u.deg,
             center=SkyCoord(ra_center, 0, unit='deg'),
             coordsys="icrs",
             rotation=Angle(0, u.deg),
@@ -250,7 +251,7 @@ def init_sky_moc(
     ax.coords[1].set_ticks(base_yticks * u.deg)
     ax.coords[1].set_major_formatter('dd')
 
-    ax.grid(True)
+    # ax.grid(color='k', linestyle="dotted")
     
     # Draw the galactic plane
     if galactic_plane_color is not None:
@@ -296,6 +297,19 @@ def init_sky_moc(
                         ecliptic.dec.degree,
                         lw=1, ls=':', alpha=0.75, c=ecliptic_plane_color, zorder=20,
                         transform=ax.get_transform('world'))
+    
+    if allsky:
+        xlim1 = wcs.world_to_pixel(SkyCoord(ra=ra_center+180+1e-12, dec=0, unit='deg'))[0]
+        xlim2 = wcs.world_to_pixel(SkyCoord(ra=ra_center-180-1e-12, dec=0, unit='deg'))[0]
+        xmin = min(xlim1, xlim2)
+        xmax = max(xlim1, xlim2)
+        ax.set_xlim(xmin, xmax)
         
+        ylim1 = wcs.world_to_pixel(SkyCoord(ra=0, dec=90-1e-12, unit='deg'))[1]
+        ylim2 = wcs.world_to_pixel(SkyCoord(ra=0, dec=-90+1e-12, unit='deg'))[1]
+        ymin = min(ylim1, ylim2)
+        ymax = max(ylim1, ylim2)
+        ax.set_ylim(ymin, ymax)
+    
     return ax
         
