@@ -300,20 +300,24 @@ def init_sky_moc(
                         transform=ax.get_transform('world'))
     
     if allsky:
-        xlim1 = wcs.world_to_pixel(SkyCoord(ra=ra_center+180+1e-12, dec=0, unit='deg'))[0]
-        xlim2 = wcs.world_to_pixel(SkyCoord(ra=ra_center-180-1e-12, dec=0, unit='deg'))[0]
-        xmin = min(xlim1, xlim2)
-        xmax = max(xlim1, xlim2)
-        ax.set_xlim(xmin, xmax)
-        
-        ylim1 = wcs.world_to_pixel(SkyCoord(ra=0, dec=90-1e-12, unit='deg'))[1]
-        ylim2 = wcs.world_to_pixel(SkyCoord(ra=0, dec=-90+1e-12, unit='deg'))[1]
-        ymin = min(ylim1, ylim2)
-        ymax = max(ylim1, ylim2)
-        ax.set_ylim(ymin, ymax)
+        make_axlim_allsky(ax, wcs, ra_center)
     
     if return_wcs:
         return ax, wcs
     else:
         return ax
+    
+
+def make_axlim_allsky(ax, wcs, ra_center):
+    xlim1 = wcs.world_to_pixel(SkyCoord(ra=ra_center+180+1e-12, dec=0, unit='deg'))[0]
+    xlim2 = wcs.world_to_pixel(SkyCoord(ra=ra_center-180-1e-12, dec=0, unit='deg'))[0]
+    xmin = min(xlim1, xlim2)
+    xmax = max(xlim1, xlim2)
+    ax.set_xlim(xmin, xmax)
+    
+    ylim1 = wcs.world_to_pixel(SkyCoord(ra=0, dec=90-1e-12, unit='deg'))[1]
+    ylim2 = wcs.world_to_pixel(SkyCoord(ra=0, dec=-90+1e-12, unit='deg'))[1]
+    ymin = min(ylim1, ylim2)
+    ymax = max(ylim1, ylim2)
+    ax.set_ylim(ymin, ymax)
         
