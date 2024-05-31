@@ -166,6 +166,52 @@ def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=0.262):
     return rgbimg, wcs
 
 
+def get_lgs_catalog(cra, cdec, ang_limit, timeout=3600, dr=10, **kwargs):
+    
+    try:
+        half_width = ang_limit.to('deg').value
+
+        ralo, rahi = np.array([-1.,1.])*half_width/np.cos(cdec*np.pi/180) + cra
+        declo, dechi = np.array([-1.,1.])*half_width + cdec
+
+        photz_url = 'https://www.legacysurvey.org/viewer/photoz-dr9/1/cat.json?'
+        cat_bbox = f'ralo={ralo:.4f}&rahi={rahi:.4f}' \
+                + f'&declo={declo:.4f}&dechi={dechi:.4f}'
+
+        photz_query_url = photz_url + cat_bbox
+        with conf.set_temp('remote_timeout', timeout):
+            ptab = Table.read(photz_query_url, format='pandas.json')
+        if len(ptab)==0:
+            return None
+
+        lgs_url = f'https://www.legacysurvey.org/viewer/ls-dr{dr}/cat.fits?'
+        query_url = lgs_url + cat_bbox
+
+        with conf.set_temp('remote_timeout', timeout):
+            tab_ls = Table.read(query_url)
+
+        lco = SkyCoord(ra=tab_ls['ra'], dec=tab_ls['dec'], unit='deg')
+        pradec = np.vstack(ptab['rd'])
+        pco = SkyCoord(ra=pradec[:,0], dec=pradec[:,1], unit='deg')
+        il, ip = match_catalogs(lco, pco, 1.0)
+
+        tab = hstack([tab_ls[il], ptab['phot_z_mean', 'phot_z_std'][ip]])
+
+        # to screen the targets outside the cone with angular radius of ang_limit.
+        cco = SkyCoord(ra=cra, dec=cdec, unit='deg')
+        tco = SkyCoord(ra=tab['ra'].data, dec=tab['dec'].data, unit='deg')
+
+        sep = cco.separation(tco)
+        tab['sep'] = sep
+        cone_mask = sep < ang_limit
+
+        return tab[cone_mask]
+    except HTTPError:
+        return None
+    except Exception as e:
+        raise e
+
+
 def get_lgs_galaxies(cra, cdec, ang_limit, get_image=False, timeout=3600,
                      dr=10, **kwargs):
     
