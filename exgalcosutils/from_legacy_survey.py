@@ -28,7 +28,7 @@ __all__ = ['get_lgs_image', 'get_lgs_image_lupton', 'get_lgs_galaxies',
            'get_info_fig']
 
 def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10,
-                  return_hdul=False, **kwargs):
+                  return_hdul=False, timeout=3600, **kwargs):
     """
     Retrieve a grz color cutout image near given RA/Dec from DESI Legacy Survey
     DR10 (or DR9).
@@ -50,6 +50,9 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10,
     return_hdul : bool, optional
         If True, the function returns the HDUList object of the image. The
         default is False.
+    timeout : int, optional
+        The timeout value for the remote data query, in seconds. The default is
+        3600.
 
     Returns
     -------
@@ -109,7 +112,8 @@ def get_lgs_image(cra, cdec, size=1600, pix_scale=0.262, dr=10,
             +f'ra={cra:.8f}&dec={cdec:.8f}&width={pix_size}&height={pix_size}'\
                 + f'&layer=ls-dr10&pixscale={pix_scale}&bands=griz'
 
-            img_hdu = fits.open(img_query_url, **kwargs)
+            with conf.set_temp('remote_timeout', 3600):
+                img_hdu = fits.open(img_query_url, **kwargs)
             h = img_hdu[0].header
             wcs = WCS(h)
             
@@ -166,7 +170,7 @@ def get_lgs_image_lupton(cra, cdec, size=1600, pix_scale=0.262):
     return rgbimg, wcs
 
 
-def get_lgs_catalog(cra, cdec, ang_limit, timeout=3600, dr=10, **kwargs):
+def get_lgs_catalog(cra, cdec, ang_limit, timeout=3600, dr=10, verbose=False, **kwargs):
     
     try:
         half_width = ang_limit.to('deg').value
@@ -175,12 +179,27 @@ def get_lgs_catalog(cra, cdec, ang_limit, timeout=3600, dr=10, **kwargs):
         declo, dechi = np.array([-1.,1.])*half_width + cdec
 
         photz_url = 'https://www.legacysurvey.org/viewer/photoz-dr9/1/cat.json?'
+        btarget_url = 'https://www.legacysurvey.org/viewer/targets-dr9-main-bright/1/cat.json?'
+        dtarget_url = 'https://www.legacysurvey.org/viewer/targets-dr9-main-dark/1/cat.json?'
+        
         cat_bbox = f'ralo={ralo:.4f}&rahi={rahi:.4f}' \
                 + f'&declo={declo:.4f}&dechi={dechi:.4f}'
 
         photz_query_url = photz_url + cat_bbox
+        btarget_query_url = btarget_url + cat_bbox
+        dtarget_query_url = dtarget_url + cat_bbox
         with conf.set_temp('remote_timeout', timeout):
+            if verbose:
+                print(f"Starting to query the photo-z catalog from\n {photz_query_url}...")
             ptab = Table.read(photz_query_url, format='pandas.json')
+            if verbose:
+                print("Finished to query the photo-z catalog.")
+                print(f"Starting to query the target catalog from\n {btarget_query_url}\n {dtarget_query_url} ...")
+            btab = Table.read(btarget_query_url, format='pandas.json')
+            dtab = Table.read(dtarget_query_url, format='pandas.json')
+            if verbose:
+                print("Finished to query the target catalog.")
+                
         if len(ptab)==0:
             return None
 
@@ -188,24 +207,40 @@ def get_lgs_catalog(cra, cdec, ang_limit, timeout=3600, dr=10, **kwargs):
         query_url = lgs_url + cat_bbox
 
         with conf.set_temp('remote_timeout', timeout):
+            if verbose:
+                print(f"Starting to query the Legacy Survey catalog from {query_url}...")
             tab_ls = Table.read(query_url)
+            if verbose:
+                print("Finished to query the Legacy Survey catalog.")
 
         lco = SkyCoord(ra=tab_ls['ra'], dec=tab_ls['dec'], unit='deg')
         pradec = np.vstack(ptab['rd'])
         pco = SkyCoord(ra=pradec[:,0], dec=pradec[:,1], unit='deg')
         il, ip = match_catalogs(lco, pco, 1.0)
+        bradec = np.vstack(btab['rd'])
+        bco = SkyCoord(ra=bradec[:,0], dec=bradec[:,1], unit='deg')
+        ilb, ib = match_catalogs(lco, bco, 1.0)
+        dradec = np.vstack(dtab['rd'])
+        dco = SkyCoord(ra=dradec[:,0], dec=dradec[:,1], unit='deg')
+        ild, id = match_catalogs(lco, dco, 1.0)
 
-        tab = hstack([tab_ls[il], ptab['phot_z_mean', 'phot_z_std'][ip]])
+        tab_ls['phot_z_mean'] = np.nan
+        tab_ls['phot_z_std'] = np.nan
+        tab_ls['phot_z_mean'][il] = ptab['phot_z_mean'][ip]
+        tab_ls['phot_z_std'][il] = ptab['phot_z_std'][ip]
+        tab_ls['desi_selection'] = ""
+        tab_ls['desi_selection'][ilb] = btab['name'][ib]
+        tab_ls['desi_selection'][ild] = dtab['name'][id]
 
         # to screen the targets outside the cone with angular radius of ang_limit.
         cco = SkyCoord(ra=cra, dec=cdec, unit='deg')
-        tco = SkyCoord(ra=tab['ra'].data, dec=tab['dec'].data, unit='deg')
+        tco = SkyCoord(ra=tab_ls['ra'].data, dec=tab_ls['dec'].data, unit='deg')
 
         sep = cco.separation(tco)
-        tab['sep'] = sep
+        tab_ls['sep'] = sep
         cone_mask = sep < ang_limit
 
-        return tab[cone_mask]
+        return tab_ls[cone_mask]
     except HTTPError:
         return None
     except Exception as e:
