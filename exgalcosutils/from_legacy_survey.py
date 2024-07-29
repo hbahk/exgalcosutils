@@ -213,24 +213,30 @@ def get_lgs_catalog(cra, cdec, ang_limit, timeout=3600, dr=10, verbose=False, **
             if verbose:
                 print("Finished to query the Legacy Survey catalog.")
 
-        lco = SkyCoord(ra=tab_ls['ra'], dec=tab_ls['dec'], unit='deg')
-        pradec = np.vstack(ptab['rd'])
-        pco = SkyCoord(ra=pradec[:,0], dec=pradec[:,1], unit='deg')
-        il, ip = match_catalogs(lco, pco, 1.0)
-        bradec = np.vstack(btab['rd'])
-        bco = SkyCoord(ra=bradec[:,0], dec=bradec[:,1], unit='deg')
-        ilb, ib = match_catalogs(lco, bco, 1.0)
-        dradec = np.vstack(dtab['rd'])
-        dco = SkyCoord(ra=dradec[:,0], dec=dradec[:,1], unit='deg')
-        ild, id = match_catalogs(lco, dco, 1.0)
-
         tab_ls['phot_z_mean'] = np.nan
         tab_ls['phot_z_std'] = np.nan
-        tab_ls['phot_z_mean'][il] = ptab['phot_z_mean'][ip]
-        tab_ls['phot_z_std'][il] = ptab['phot_z_std'][ip]
         tab_ls['desi_selection'] = ""
-        tab_ls['desi_selection'][ilb] = btab['name'][ib]
-        tab_ls['desi_selection'][ild] = dtab['name'][id]
+        
+        lco = SkyCoord(ra=tab_ls['ra'], dec=tab_ls['dec'], unit='deg')
+        
+        if len(ptab) > 0:
+            pradec = np.vstack(ptab['rd'])
+            pco = SkyCoord(ra=pradec[:,0], dec=pradec[:,1], unit='deg')
+            il, ip = match_catalogs(lco, pco, 1.0)
+            tab_ls['phot_z_mean'][il] = ptab['phot_z_mean'][ip]
+            tab_ls['phot_z_std'][il] = ptab['phot_z_std'][ip]
+        
+        if len(btab) > 0:
+            bradec = np.vstack(btab['rd'])
+            bco = SkyCoord(ra=bradec[:,0], dec=bradec[:,1], unit='deg')
+            ilb, ib = match_catalogs(lco, bco, 1.0)
+            tab_ls['desi_selection'][ilb] = btab['name'][ib]
+            
+        if len(dtab) > 0:
+            dradec = np.vstack(dtab['rd'])
+            dco = SkyCoord(ra=dradec[:,0], dec=dradec[:,1], unit='deg')
+            ild, id = match_catalogs(lco, dco, 1.0)
+            tab_ls['desi_selection'][ild] = dtab['name'][id]
 
         # to screen the targets outside the cone with angular radius of ang_limit.
         cco = SkyCoord(ra=cra, dec=cdec, unit='deg')
