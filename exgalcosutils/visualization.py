@@ -124,16 +124,16 @@ def init_sky(
 
         # Project to map coordinates and display.
         ax.plot(
-            ax.projection_ra(galactic.ra.degree),
-            ax.projection_dec(galactic.dec.degree),
+            projection_ra(galactic.ra.degree),
+            projection_dec(galactic.dec.degree),
             lw=1,
             alpha=0.75,
             c=galactic_plane_color,
             zorder=20,
         )
         ax.plot(
-            ax.projection_ra(galup.ra.degree),
-            ax.projection_dec(galup.dec.degree),
+            projection_ra(galup.ra.degree),
+            projection_dec(galup.dec.degree),
             lw=1,
             ls="--",
             alpha=0.75,
@@ -141,8 +141,8 @@ def init_sky(
             zorder=20,
         )
         ax.plot(
-            ax.projection_ra(galdo.ra.degree),
-            ax.projection_dec(galdo.dec.degree),
+            projection_ra(galdo.ra.degree),
+            projection_dec(galdo.dec.degree),
             lw=1,
             ls="--",
             alpha=0.75,
@@ -166,8 +166,8 @@ def init_sky(
 
         # Project to map coordinates and display.
         ax.plot(
-            ax.projection_ra(ecliptic.ra.degree),
-            ax.projection_dec(ecliptic.dec.degree),
+            projection_ra(ecliptic.ra.degree),
+            projection_dec(ecliptic.dec.degree),
             lw=1,
             ls=":",
             alpha=0.75,
@@ -206,6 +206,7 @@ def init_sky_moc(
     ecliptic_plane_color="red",
     allsky=True,
     return_wcs=False,
+    figsize=(10, 5),
 ):
     """Initialize matplotlib axes with a projection of the full sky, using WCS
     projection from mocpy.
@@ -229,7 +230,7 @@ def init_sky_moc(
     :class:`~matplotlib.axes.Axes`
         A matplotlib Axes object.
     """
-    fig = plt.figure(figsize=(10, 5))
+    fig = plt.figure(figsize=figsize)
     wcs = WCS(fig=fig,
             fov=360*u.deg,
             center=SkyCoord(ra_center, 0, unit='deg'),
