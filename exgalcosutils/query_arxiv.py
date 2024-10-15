@@ -217,9 +217,9 @@ def print_titles(feed: feedparser.FeedParserDict):
     """
     for entry in feed.entries:
         print('* ' + entry.title)
-        
 
-def save_feed(feed: feedparser.FeedParserDict, filename: str):
+
+def save_feed(feed: feedparser.FeedParserDict, filename: str, include_abstract=False):
     """Save feed information to a file.
 
     Args:
@@ -228,15 +228,19 @@ def save_feed(feed: feedparser.FeedParserDict, filename: str):
     """
     with open(filename, 'w') as f:
         for entry in feed.entries:
-            mdentry = make_markdown_entry(entry)
+            mdentry = make_markdown_entry(entry, include_abstract)
             f.write(mdentry)
-            
 
-def make_markdown_entry(entry: feedparser.FeedParserDict) -> str:
+
+def make_markdown_entry(
+    entry: feedparser.FeedParserDict, include_abstract=False
+) -> str:
     """Make a markdown entry for the feed entry.
 
     Args:
         entry: a single feed entry.
+        include_abstract: If True, include the abstract in the markdown entry.
+            Default is False.
 
     Returns:
         str: Markdown entry.
@@ -256,9 +260,12 @@ def make_markdown_entry(entry: feedparser.FeedParserDict) -> str:
         authstr = r" \& ".join(last_names)
     else:
         authstr = last_names[0] + " et al."
-    
+
     markdown = f"* [[abs]({abs_link})][[pdf]({pdf_link})] **{title}** ({authstr})\n"
-    
+    if include_abstract:
+        abstract = entry.summary.replace("\n", " ")
+        markdown += f"  > {abstract}\n"
+
     return markdown
 
 
@@ -278,10 +285,11 @@ if __name__ == "__main__":
     else:
         # Default to today's date if no argument is provided
         specific_date = datetime.datetime.now()
+    
+    if len(sys.argv) > 2:
+        include_abstract = "--include-abstract" in sys.argv
 
     feed = query_arxiv_daily(categories, specific_date, max_results=100)
     print_titles(feed)
     print(f"Total results: {feed.feed.opensearch_totalresults}")
-    save_feed(feed, f"arxiv_{specific_date.strftime('%Y-%m-%d')}.md")
-
-    
+    save_feed(feed, f"arxiv_{specific_date.strftime('%Y-%m-%d')}.md", include_abstract)
