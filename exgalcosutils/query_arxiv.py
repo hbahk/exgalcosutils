@@ -264,14 +264,14 @@ def make_markdown_entry(
     markdown = f"* [[abs]({abs_link})][[pdf]({pdf_link})] **{title}** ({authstr})\n"
     if include_abstract:
         abstract = entry.summary.replace("\n", " ")
-        markdown += f"  > {abstract}\n"
+        markdown += f"  - {abstract}\n"
 
     return markdown
 
 
 if __name__ == "__main__":
     categories = ["astro-ph.GA", "astro-ph.CO"]
-    
+
     # Check if a command line argument is provided for the date
     if len(sys.argv) > 1:
         date_input = sys.argv[1]
@@ -285,11 +285,16 @@ if __name__ == "__main__":
     else:
         # Default to today's date if no argument is provided
         specific_date = datetime.datetime.now()
-    
+
     if len(sys.argv) > 2:
         include_abstract = "--include-abstract" in sys.argv
 
     feed = query_arxiv_daily(categories, specific_date, max_results=100)
     print_titles(feed)
     print(f"Total results: {feed.feed.opensearch_totalresults}")
-    save_feed(feed, f"arxiv_{specific_date.strftime('%Y-%m-%d')}.md", include_abstract)
+    if include_abstract:
+        save_feed(
+            feed, f"arxiv_abs_{specific_date.strftime('%Y-%m-%d')}.md", include_abstract
+        )
+    else:
+        save_feed(feed, f"arxiv_{specific_date.strftime('%Y-%m-%d')}.md")
