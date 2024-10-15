@@ -271,6 +271,7 @@ def make_markdown_entry(
 
 if __name__ == "__main__":
     categories = ["astro-ph.GA", "astro-ph.CO"]
+    include_abstract = False
 
     # Check if a command line argument is provided for the date
     if len(sys.argv) > 1:
